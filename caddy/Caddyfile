@@ -1,0 +1,9 @@
+# Replace with your domain and email
+guac.example.com {
+    encode gzip
+    tls you@example.com
+    reverse_proxy guacamole:8080
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+}

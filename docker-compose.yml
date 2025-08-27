@@ -1,0 +1,73 @@
+version: "3.8"
+
+services:
+  db:
+    image: mariadb:11
+    container_name: guac_db
+    command: --transaction-isolation=READ-COMMITTED --log-bin=mysql-bin --binlog-format=ROW
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  guacd:
+    image: guacamole/guacd:${GUAC_VERSION}
+    container_name: guacd
+    environment:
+      - TZ=${TZ}
+    restart: unless-stopped
+
+  guacamole:
+    image: guacamole/guacamole:${GUAC_VERSION}
+    container_name: guacamole
+    depends_on:
+      - db
+      - guacd
+    environment:
+      - GUACD_HOSTNAME=guacd
+      - GUACD_PORT=4822
+      - MYSQL_HOSTNAME=db
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - TZ=${TZ}
+    ports:
+      - "${GUACAMOLE_PORT}:8080"
+    # Optional: persist GUACAMOLE_HOME for extensions/logs
+    volumes:
+      - guac_home:/guacamole/home
+    restart: unless-stopped
+
+  # === OPTIONAL (commented): Reverse-proxy with Caddy & free SSL ===
+  # caddy:
+  #   image: caddy:2
+  #   container_name: caddy
+  #   depends_on:
+  #     - guacamole
+  #   environment:
+  #     - TZ=${TZ}
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+  #     - caddy_data:/data
+  #     - caddy_config:/config
+  #   restart: unless-stopped
+
+volumes:
+  db_data:
+  guac_home:
+  # caddy_data:
+  # caddy_config:
